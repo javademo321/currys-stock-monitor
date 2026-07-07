@@ -72,8 +72,22 @@ def send_email_alert(detail: str, is_test: bool = False) -> None:
         },
         timeout=30,
     )
-    print(f"Email send status: {resp.status_code} {resp.text[:200]}")
-    resp.raise_for_status()
+    print(f"Email send status: {resp.status_code} {resp.text[:300]}")
+
+    # Web3Forms returns HTTP 200 with {"success": false, ...} for problems like an
+    # invalid access key, so check the JSON body, not just the HTTP status.
+    ok = False
+    try:
+        ok = bool(resp.json().get("success"))
+    except Exception:
+        ok = resp.ok
+
+    if not ok:
+        print("ERROR: Web3Forms did not accept the email. Check that WEB3FORMS_KEY "
+              "is your correct access key and that the form's email is verified.")
+        sys.exit(1)
+
+    print("Email accepted by Web3Forms.")
 
 
 def main() -> None:
