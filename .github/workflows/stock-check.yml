@@ -1,0 +1,37 @@
+name: Currys Stock Check
+
+on:
+  # GitHub cron is ALWAYS in UTC. The UK is UTC+1 in summer (BST) and UTC+0 in winter (GMT).
+  # 08:00 & 13:00 UTC  ->  09:00 & 14:00 UK time during BST (late Mar - late Oct).
+  # In winter (GMT) these become 08:00 & 13:00 UK time - change to '0 9,14 * * *' if you
+  # want exactly 9am/2pm year round.
+  schedule:
+    - cron: "0 8,13 * * *"
+  # Lets you run it on demand from the Actions tab (great for testing).
+  workflow_dispatch:
+    inputs:
+      test_email:
+        description: "Send a test email instead of checking stock?"
+        type: boolean
+        default: false
+
+jobs:
+  check-stock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run stock check
+        env:
+          WEB3FORMS_KEY: ${{ secrets.WEB3FORMS_KEY }}
+          TEST_EMAIL: ${{ github.event.inputs.test_email == 'true' && '1' || '0' }}
+        run: python check_stock.py
