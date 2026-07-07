@@ -16,7 +16,7 @@ email goes through Web3Forms' free tier (~250 emails/month; this uses ~60).
 
 ### 1. Get a free email key from Web3Forms
 1. Go to https://web3forms.com
-2. Enter **andrew@multibrands-techtron.com** in the "Create your Access Key" box and submit.
+2. Enter **Email** in the "Create your Access Key" box and submit.
 3. Web3Forms emails an **Access Key** (a long code) to that address. Copy it.
    - This is what lets the monitor deliver mail to that inbox. No password/SMTP needed.
 
