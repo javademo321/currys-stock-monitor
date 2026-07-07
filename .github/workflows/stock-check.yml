@@ -32,6 +32,6 @@ jobs:
 
       - name: Run stock check
         env:
-          WEB3FORMS_KEY: ${{ secrets.WEB3FORMS_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           TEST_EMAIL: ${{ github.event.inputs.test_email == 'true' && '1' || '0' }}
         run: python check_stock.py
