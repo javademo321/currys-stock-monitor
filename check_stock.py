@@ -3,14 +3,19 @@
 Currys Business stock monitor.
 
 Checks whether a specific product is back in stock and, if so, sends an email
-alert via Web3Forms (https://web3forms.com) — a free form-to-email service that
-needs no SMTP server or password, just an access key.
+alert via Resend (https://resend.com) — a free email API that works from a
+server (unlike Web3Forms, whose free tier blocks server-side sends).
 
 Designed to run on GitHub Actions (see .github/workflows/stock-check.yml) but
 works anywhere Python 3 + `requests` is available.
 
 Environment variables:
-  WEB3FORMS_KEY  (required to send email) - your Web3Forms access key.
+  RESEND_API_KEY  (required to send email) - your Resend API key (starts "re_").
+  TO_EMAIL        (optional) - recipient; defaults to the address below.
+
+NOTE on Resend's free tier: without a verified sending domain you can only send
+FROM "onboarding@resend.dev" and only TO the email address that owns the Resend
+account. So sign up at resend.com using the SAME address you want alerts at.
 """
 
 import os
@@ -22,6 +27,11 @@ PRODUCT_NAME = 'APPLE MacBook Pro 16" (2026) - M5 Max, 2 TB SSD, RAM 48 GB, Spac
 PRODUCT_CODE = "MGEE4B"  # appears in the page HTML; used to confirm the right page loaded
 URL = ("https://business.currys.co.uk/catalogue/computing/laptops/macbook/"
        "apple-macbook-pro-16-2026-m5-max-2-tb-ssd-ram-48-gb-space-black/N428505W")
+
+# Where alerts go. Override with the TO_EMAIL env var if you like.
+DEFAULT_TO_EMAIL = "andrew@multibrands-techtron.com"
+# On Resend's free tier (no verified domain) the From address must be this.
+FROM_EMAIL = "Currys Stock Monitor <onboarding@resend.dev>"
 
 # A realistic browser User-Agent so Currys serves the normal page.
 HEADERS = {
@@ -39,10 +49,11 @@ def fetch_page() -> str:
 
 
 def send_email_alert(detail: str, is_test: bool = False) -> None:
-    key = os.environ.get("WEB3FORMS_KEY")
+    key = os.environ.get("RESEND_API_KEY")
     if not key:
-        print("ERROR: WEB3FORMS_KEY is not set - cannot send the email alert.")
+        print("ERROR: RESEND_API_KEY is not set - cannot send the email alert.")
         sys.exit(1)
+    to_email = os.environ.get("TO_EMAIL") or DEFAULT_TO_EMAIL
 
     if is_test:
         subject = "TEST: Currys stock monitor is working"
@@ -63,31 +74,30 @@ def send_email_alert(detail: str, is_test: bool = False) -> None:
         )
 
     resp = requests.post(
-        "https://api.web3forms.com/submit",
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
         json={
-            "access_key": key,
+            "from": FROM_EMAIL,
+            "to": [to_email],
             "subject": subject,
-            "from_name": "Currys Stock Monitor",
-            "message": message,
+            "text": message,
         },
         timeout=30,
     )
     print(f"Email send status: {resp.status_code} {resp.text[:300]}")
 
-    # Web3Forms returns HTTP 200 with {"success": false, ...} for problems like an
-    # invalid access key, so check the JSON body, not just the HTTP status.
-    ok = False
-    try:
-        ok = bool(resp.json().get("success"))
-    except Exception:
-        ok = resp.ok
-
-    if not ok:
-        print("ERROR: Web3Forms did not accept the email. Check that WEB3FORMS_KEY "
-              "is your correct access key and that the form's email is verified.")
+    # Resend returns 200 with {"id": "..."} on success, and a non-2xx status with
+    # {"message": "..."} on failure (bad key, unverified recipient, etc.).
+    if not resp.ok:
+        print(f"ERROR: Resend did not accept the email (to {to_email}). "
+              "Check that RESEND_API_KEY is correct and that TO_EMAIL is the same "
+              "address your Resend account is registered under (free-tier rule).")
         sys.exit(1)
 
-    print("Email accepted by Web3Forms.")
+    print(f"Email accepted by Resend -> {to_email}")
 
 
 def main() -> None:
